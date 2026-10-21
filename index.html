@@ -40,6 +40,14 @@ input[type=checkbox]{-webkit-appearance:checkbox;appearance:auto;width:28px;heig
 #auth form{display:grid;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
 #auth label{display:grid;gap:4px;font-size:.85rem;color:var(--muted)}
 .row{display:flex;gap:8px;flex-wrap:wrap}
+select{font:inherit;min-width:0;max-width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+#chart svg{display:block;width:100%;height:auto;touch-action:manipulation}
+#chart text{font:11px var(--body);fill:var(--muted);font-variant-numeric:tabular-nums}
+#chart .grid{stroke:var(--line);stroke-width:1}
+#chart .line{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+#chart .dot{fill:var(--accent);stroke:var(--surface);stroke-width:2}
+#chart .hit{fill:transparent;cursor:pointer}
+#chart .val{fill:var(--fg);font-weight:600}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 </style>
 </head>
@@ -67,6 +75,11 @@ input[type=checkbox]{-webkit-appearance:checkbox;appearance:auto;width:28px;heig
   <div class="dayline"><h2 id="day"></h2><span class="meta" id="prog"></span></div>
   <span class="meta" id="status" role="status"></span>
   <div id="list"></div>
+  <section class="ex" id="evo">
+    <header><h3>Evolução da carga</h3><select id="evoex" aria-label="Exercício do gráfico"></select></header>
+    <span class="meta" id="evosum" role="status"></span>
+    <div id="chart"></div>
+  </section>
   <div class="foot"><span class="meta" id="who"></span><button class="link" id="logout">Sair</button></div>
 </main>
 
@@ -152,6 +165,55 @@ function render() {
       <div class="set head"><span></span><span>kg</span><span>reps</span><span>feito</span></div>${rows}</section>`;
   }).join('');
   prog();
+  chart();
+}
+
+const EXS = [...new Set(Object.values(PLAN).flatMap(p => p[1].map(e => e[0])))];
+$('#evoex').innerHTML = EXS.map(n => `<option>${n}</option>`).join('');
+$('#evoex').value = 'Supino reto com barra';
+$('#evoex').addEventListener('change', chart);
+const br = d => d.slice(8, 10) + '/' + d.slice(5, 7);
+
+// Maior carga registrada por data, somando todos os dias em que o exercício aparece
+function series(name) {
+  const by = {};
+  for (const [k, v] of Object.entries(db)) {
+    const w = Math.max(0, ...(v[name] || []).map(s => +s?.w || 0));
+    if (w) by[k.slice(0, 10)] = Math.max(by[k.slice(0, 10)] || 0, w);
+  }
+  return Object.entries(by).sort().map(([d, w]) => ({ d, w }));
+}
+
+function chart() {
+  const name = $('#evoex').value, pts = series(name), el = $('#chart'), sum = $('#evosum');
+  if (pts.length < 2) {
+    sum.textContent = pts.length ? `${br(pts[0].d)}: ${pts[0].w} kg. Registre mais um treino deste exercício para ver a evolução.` : 'Sem registros deste exercício ainda.';
+    el.innerHTML = '';
+    return;
+  }
+  const W = 360, H = 200, L = 34, R = 34, T = 14, B = 24;
+  const ws = pts.map(p => p.w), step = 5;
+  const lo = Math.floor(Math.min(...ws) / step) * step - step, hi = Math.ceil(Math.max(...ws) / step) * step + step;
+  const t0 = Date.parse(pts[0].d), t1 = Date.parse(pts.at(-1).d);
+  const x = d => L + (W - L - R) * (Date.parse(d) - t0) / (t1 - t0 || 1);
+  const y = w => T + (H - T - B) * (1 - (w - lo) / (hi - lo));
+  const ticks = Array.from({ length: 5 }, (_, i) => Math.round(lo + (hi - lo) * i / 4));
+  const lastP = pts.at(-1), best = Math.max(...ws), diff = lastP.w - pts[0].w;
+  sum.textContent = `Última ${lastP.w} kg · melhor ${best} kg · ${diff >= 0 ? '+' : ''}${diff} kg desde ${br(pts[0].d)}. Toque num ponto para ver a data.`;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Carga máxima de ${name} por treino, de ${pts[0].w} a ${lastP.w} kg">
+    ${ticks.map(t => `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}"/><text x="${L - 6}" y="${y(t) + 4}" text-anchor="end">${t}</text>`).join('')}
+    <text x="${L}" y="${H - 6}">${br(pts[0].d)}</text><text x="${W - R}" y="${H - 6}" text-anchor="end">${br(lastP.d)}</text>
+    <path class="line" d="${pts.map((p, i) => (i ? 'L' : 'M') + x(p.d).toFixed(1) + ',' + y(p.w).toFixed(1)).join('')}"/>
+    ${pts.map((p, i) => `<circle class="dot" data-i="${i}" cx="${x(p.d)}" cy="${y(p.w)}" r="4"/>`).join('')}
+    <text class="val" x="${x(lastP.d) + 8}" y="${y(lastP.w) + 4}">${lastP.w}</text>
+    ${pts.map((p, i) => `<circle class="hit" data-i="${i}" cx="${x(p.d)}" cy="${y(p.w)}" r="14"/>`).join('')}
+  </svg>`;
+  el.querySelectorAll('.hit').forEach(c => { c.addEventListener('pointerenter', show); c.addEventListener('click', show); });
+  function show(e) {
+    const p = pts[e.target.dataset.i];
+    el.querySelectorAll('.dot').forEach(d => d.setAttribute('r', d.dataset.i === e.target.dataset.i ? 6 : 4));
+    sum.textContent = `${br(p.d)}: ${p.w} kg`;
+  }
 }
 
 function prog() {
@@ -186,6 +248,7 @@ $('#list').addEventListener('input', e => {
   } else row[f] = t.value;
   persist(key());
   prog();
+  if (f === 'w' || f === 'ok') chart();
 });
 
 const authMsg = (t, warn) => { $('#authmsg').textContent = t; $('#authmsg').classList.toggle('warn', !!warn); };
