@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1d6b47">
+<title>Diário de Treino</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+/* Layout: coluna única no celular — abas dos dias, depois um cartão por exercício com as séries */
+:root{--bg:#eef1ef;--surface:#fff;--fg:#17201c;--muted:#5d6b65;--line:#d3dad6;--accent:#1d6b47;--accent-fg:#fff;--done:#e0eee5;--warn:#9a5b00;
+--display:"Barlow Condensed","Arial Narrow",Impact,sans-serif;--body:"Barlow",system-ui,sans-serif}
+@media (prefers-color-scheme:dark){:root{--bg:#121715;--surface:#1b2220;--fg:#e6ece9;--muted:#93a39c;--line:#2d3733;--accent:#52c08a;--accent-fg:#0d1411;--done:#1c3127;--warn:#e0a548;color-scheme:dark}}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 var(--body)}
+[hidden]{display:none!important}
+main,#auth{max-width:640px;margin:0 auto;padding-block:max(20px,env(safe-area-inset-top,0px)) 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:14px}
+.top{display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap}
+h1{font:700 2rem/1 var(--display);text-transform:uppercase;letter-spacing:.02em;margin:0;text-wrap:balance}
+.top input{width:auto}
+.tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+button{font:600 1rem var(--display);text-transform:uppercase;letter-spacing:.06em;padding:10px 12px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:8px;cursor:pointer}
+.tabs button{padding-inline:0}
+button[aria-pressed="true"],button.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+button.link{border:0;background:none;padding:0;color:var(--muted);text-decoration:underline;font:inherit;text-transform:none;letter-spacing:0;font-size:.85rem}
+.dayline,.foot{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.dayline h2{font:600 1.35rem var(--display);text-transform:uppercase;letter-spacing:.04em;margin:0}
+.meta{font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.warn{color:var(--warn)}
+#list{display:grid;gap:12px}
+.ex{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:8px}
+.ex header{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}
+.ex h3{margin:0;font-size:1.05rem;font-weight:600}
+.tag{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-left:6px}
+.set{display:grid;grid-template-columns:2rem 1fr 1fr 2.5rem;gap:8px;align-items:center;padding:4px;border-radius:8px}
+.set.ok{background:var(--done)}
+.set.head{padding-block:0;font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.set>span:first-child{font:600 1rem var(--display);color:var(--muted);text-align:center}
+input{font:inherit;width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);font-variant-numeric:tabular-nums}
+input[type=checkbox]{width:28px;height:28px;padding:0;accent-color:var(--accent);justify-self:center}
+#auth form{display:grid;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
+#auth label{display:grid;gap:4px;font-size:.85rem;color:var(--muted)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+
+<section id="auth" hidden>
+  <h1>Diário de Treino</h1>
+  <form id="login">
+    <label for="email">E-mail<input type="email" id="email" autocomplete="username" required></label>
+    <label for="pass">Senha<input type="password" id="pass" autocomplete="current-password" minlength="6" required></label>
+    <div class="row">
+      <button class="primary" type="submit">Entrar</button>
+      <button type="button" id="signup">Criar conta</button>
+    </div>
+    <span class="meta" id="authmsg" role="status"></span>
+  </form>
+</section>
+
+<main id="app" hidden>
+  <div class="top">
+    <h1>Diário de Treino</h1>
+    <input type="date" id="date" aria-label="Data do treino">
+  </div>
+  <div class="tabs" id="tabs"></div>
+  <div class="dayline"><h2 id="day"></h2><span class="meta" id="prog"></span></div>
+  <span class="meta" id="status" role="status"></span>
+  <div id="list"></div>
+  <div class="foot"><span class="meta" id="who"></span><button class="link" id="logout">Sair</button></div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const sb = supabase.createClient('https://zavfwitzqhmxurpacrqe.supabase.co', 'sb_publishable_Zq0Zo2u53SRgmc1Fza4irw_Yqlr5Enw');
+
+const PLAN = {
+  1: ['Inferior · quadríceps', [['Hack', 4, '6–10', 'Marcador'], ['Leg press', 3, '10–15'], ['Cadeira extensora', 4, '12–15', 'SS'], ['Mesa flexora', 4, '12–15', 'SS'], ['Panturrilha sentado', 4, '12–20', 'SS'], ['Elevação de pernas', 4, '10–15', 'SS'], ['Elevação lateral', 3, '15–20']]],
+  2: ['Push · ombro', [['Desenvolvimento na máquina', 4, '6–10'], ['Elevação lateral no cabo', 5, '12–20'], ['Supino reto com barra', 3, '5–8', 'Marcador'], ['Face pull', 3, '15–20'], ['Tríceps francês', 3, '10–12']]],
+  3: ['Pull · costas', [['Remada curvada', 4, '6–10', 'Marcador'], ['Puxada neutra unilateral', 4, '10–12'], ['Pullover no cabo', 3, '12–15'], ['Crucifixo inverso', 4, '15–20'], ['Rosca inclinada', 3, '10–12'], ['Rosca martelo', 2, '10–12']]],
+  4: ['Inferior · posterior', [['Stiff', 4, '6–10'], ['Agachamento no Smith / pêndulo', 3, '8–10'], ['Flexora sentada', 3, '10–12'], ['Búlgaro (por perna)', 3, '8–12'], ['Panturrilha em pé', 4, '10–15', 'SS'], ['Abdominal na polia', 4, '10–15', 'SS']]],
+  5: ['Superior', [['Barra fixa / puxada aberta', 4, '6–10'], ['Remada baixa', 3, '8–12'], ['Supino inclinado com halter', 2, '8–10'], ['Desenvolvimento com halter', 3, '8–10'], ['Elevação lateral', 4, '12–20'], ['Crucifixo inverso', 3, '15–20'], ['Tríceps corda', 2, '10–12', 'SS'], ['Rosca direta', 2, '10–12', 'SS']]]
+};
+const DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'];
+const $ = s => document.querySelector(s);
+
+// db: { "2026-10-21_3": { "Remada curvada": [{w, r, ok}, ...] } }; pending: chaves ainda não enviadas
+let db = {}, pending = new Set();
+try { db = JSON.parse(localStorage.getItem('treino-db')) || {}; pending = new Set(JSON.parse(localStorage.getItem('treino-pending')) || []); } catch {}
+const cache = () => { try { localStorage.setItem('treino-db', JSON.stringify(db)); localStorage.setItem('treino-pending', JSON.stringify([...pending])); } catch {} };
+const status = (t, warn) => { $('#status').textContent = t; $('#status').classList.toggle('warn', !!warn); };
+
+const iso = d => { d = new Date(d); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+const weekday = s => Math.min(Math.max(new Date(s + 'T12:00').getDay(), 1), 5);
+let date = iso(new Date()), day = weekday(date);
+const key = () => `${date}_${day}`;
+
+const timers = {};
+function persist(k) {
+  pending.add(k);
+  cache();
+  clearTimeout(timers[k]);
+  timers[k] = setTimeout(flush, 600);
+}
+let flushing = false;
+async function flush() {
+  if (flushing || !pending.size) return;
+  flushing = true;
+  status('Salvando…');
+  const keys = [...pending];
+  const { error } = await sb.from('sessions').upsert(keys.map(id => ({ id, sets: db[id], updated_at: new Date().toISOString() })));
+  if (error) status('Sem conexão: o registro ficou neste aparelho e será enviado depois.', true);
+  else { keys.forEach(k => pending.delete(k)); cache(); status('Salvo'); }
+  flushing = false;
+  if (!error && pending.size) flush();
+}
+addEventListener('online', flush);
+
+async function load() {
+  status('Carregando…');
+  const { data, error } = await sb.from('sessions').select('id, sets');
+  if (error) { status('Sem conexão: mostrando o que está neste aparelho.', true); return; }
+  for (const r of data) if (!pending.has(r.id)) db[r.id] = r.sets;
+  cache();
+  status(pending.size ? 'Enviando registros pendentes…' : 'Salvo');
+  render();
+  flush();
+}
+
+function last(name) {
+  const k = Object.keys(db).filter(k => k.endsWith('_' + day) && k < key() && db[k][name]?.some(s => s?.w !== '')).sort().pop();
+  return k ? db[k][name] : null;
+}
+
+function render() {
+  $('#date').value = date;
+  $('#tabs').innerHTML = DAYS.map((d, i) => `<button data-d="${i + 1}" aria-pressed="${day === i + 1}">${d}</button>`).join('');
+  const [title, exs] = PLAN[day], log = db[key()] || {};
+  $('#day').textContent = title;
+  $('#list').innerHTML = exs.map(([n, sets, reps, tag], i) => {
+    const cur = log[n] || [], prev = last(n);
+    const rows = Array.from({ length: sets }, (_, k) => {
+      const { w = '', r = '', ok = false } = cur[k] || {}, p = prev?.[k] || {};
+      return `<div class="set${ok ? ' ok' : ''}"><span>${k + 1}</span>
+        <input type="number" inputmode="decimal" step="0.5" min="0" id="w${i}-${k}" data-i="${i}" data-k="${k}" data-f="w" value="${w}" placeholder="${p.w || 'kg'}" aria-label="${n}, série ${k + 1}, carga em kg">
+        <input type="number" inputmode="numeric" min="0" id="r${i}-${k}" data-i="${i}" data-k="${k}" data-f="r" value="${r}" placeholder="${p.r || reps}" aria-label="${n}, série ${k + 1}, repetições">
+        <input type="checkbox" id="c${i}-${k}" data-i="${i}" data-k="${k}" data-f="ok" ${ok ? 'checked' : ''} aria-label="${n}, série ${k + 1} feita"></div>`;
+    }).join('');
+    const hint = prev ? `Última: ${prev.filter(s => s?.w !== '').map(s => `${s.w}×${s.r || '?'}`).join(' · ')}` : 'Sem registro anterior';
+    return `<section class="ex"><header><h3>${n}${tag ? `<span class="tag">${tag}</span>` : ''}</h3><span class="meta">${sets} × ${reps}</span></header>
+      <span class="meta">${hint}</span>
+      <div class="set head"><span></span><span>kg</span><span>reps</span><span>feito</span></div>${rows}</section>`;
+  }).join('');
+  prog();
+}
+
+function prog() {
+  const exs = PLAN[day][1], log = db[key()] || {};
+  const total = exs.reduce((a, e) => a + e[1], 0);
+  const done = exs.reduce((a, [n]) => a + (log[n] || []).filter(s => s?.ok).length, 0);
+  $('#prog').textContent = `${done}/${total} séries`;
+}
+
+$('#tabs').addEventListener('click', e => { const d = e.target.dataset.d; if (d) { day = +d; render(); } });
+$('#date').addEventListener('change', e => {
+  if (!e.target.value) return;
+  date = e.target.value;
+  const logged = Object.keys(db).find(k => k.startsWith(date + '_'));
+  day = logged ? +logged.split('_')[1] : weekday(date);
+  render();
+});
+
+$('#list').addEventListener('input', e => {
+  const t = e.target, { i, k, f } = t.dataset;
+  if (i == null) return;
+  const name = PLAN[day][1][i][0], sets = ((db[key()] ??= {})[name] ??= []);
+  for (let j = 0; j <= k; j++) sets[j] ??= { w: '', r: '', ok: false };
+  const row = sets[k];
+  if (f === 'ok') {
+    row.ok = t.checked;
+    t.parentNode.classList.toggle('ok', t.checked);
+    // Ao marcar uma série vazia, repete carga/reps da última vez
+    if (t.checked) t.parentNode.querySelectorAll('input[type=number]').forEach(inp => {
+      if (!inp.value && /^\d/.test(inp.placeholder)) { inp.value = parseFloat(inp.placeholder); row[inp.dataset.f] = inp.value; }
+    });
+  } else row[f] = t.value;
+  persist(key());
+  prog();
+});
+
+const authMsg = (t, warn) => { $('#authmsg').textContent = t; $('#authmsg').classList.toggle('warn', !!warn); };
+const creds = () => ({ email: $('#email').value.trim(), password: $('#pass').value });
+$('#login').addEventListener('submit', async e => {
+  e.preventDefault();
+  authMsg('Entrando…');
+  const { error } = await sb.auth.signInWithPassword(creds());
+  if (error) authMsg(error.message === 'Email not confirmed' ? 'Confirme o e-mail pelo link que enviamos antes de entrar.' : 'E-mail ou senha incorretos.', true);
+});
+$('#signup').addEventListener('click', async () => {
+  if (!$('#login').reportValidity()) return;
+  authMsg('Criando conta…');
+  const { data, error } = await sb.auth.signUp({ ...creds(), options: { emailRedirectTo: location.origin + location.pathname } });
+  if (error) authMsg(error.message.includes('not allowed') || error.message.includes('disabled') ? 'Cadastro fechado. Entre com a conta existente.' : error.message, true);
+  else if (!data.session) authMsg('Conta criada. Abra o link enviado ao seu e-mail para confirmar e depois entre.');
+});
+$('#logout').addEventListener('click', async () => {
+  await sb.auth.signOut();
+  db = {}; pending.clear(); cache();
+});
+
+sb.auth.onAuthStateChange((_, session) => {
+  $('#auth').hidden = !!session;
+  $('#app').hidden = !session;
+  if (session) { $('#who').textContent = session.user.email; render(); load(); }
+});
+</script>
+</body>
+</html>
