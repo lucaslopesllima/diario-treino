@@ -30,6 +30,7 @@ button.link{border:0;background:none;padding:0;color:var(--muted);text-decoratio
 .ex{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:8px}
 .ex header{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}
 .ex h3{margin:0;font-size:1.05rem;font-weight:600}
+.ex h3 a{color:inherit;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px}
 .tag{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-left:6px}
 .set{display:grid;grid-template-columns:2rem minmax(0,1fr) minmax(0,1fr) 2.5rem;gap:8px;align-items:center;padding:4px;border-radius:8px}
 .set.ok{background:var(--done)}
@@ -160,7 +161,8 @@ function render() {
         <input type="checkbox" id="c${i}-${k}" data-i="${i}" data-k="${k}" data-f="ok" ${ok ? 'checked' : ''} aria-label="${n}, série ${k + 1} feita"></div>`;
     }).join('');
     const hint = prev ? `Última: ${prev.filter(s => s?.w !== '').map(s => `${s.w}×${s.r || '?'}`).join(' · ')}` : 'Sem registro anterior';
-    return `<section class="ex"><header><h3>${n}${tag ? `<span class="tag">${tag}</span>` : ''}</h3><span class="meta">${sets} × ${reps}</span></header>
+    const yt = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(`${n.replace(/\s*\(.*\)/, '')} execução correta`);
+    return `<section class="ex"><header><h3><a href="${yt}" target="_blank" rel="noopener">${n} ▸</a>${tag ? `<span class="tag">${tag}</span>` : ''}</h3><span class="meta">${sets} × ${reps}</span></header>
       <span class="meta">${hint}</span>
       <div class="set head"><span></span><span>kg</span><span>reps</span><span>feito</span></div>${rows}</section>`;
   }).join('');
