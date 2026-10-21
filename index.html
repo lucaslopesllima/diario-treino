@@ -96,6 +96,19 @@ const PLAN = {
   5: ['Superior', [['Barra fixa / puxada aberta', 4, '6–10'], ['Remada baixa', 3, '8–12'], ['Supino inclinado com halter', 2, '8–10'], ['Desenvolvimento com halter', 3, '8–10'], ['Elevação lateral', 4, '12–20'], ['Crucifixo inverso', 3, '15–20'], ['Tríceps corda', 2, '10–12', 'SS'], ['Rosca direta', 2, '10–12', 'SS']]]
 };
 const DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'];
+// Vídeo de execução no MuscleWiki (slug em musclewiki.com/pt-br/exercise/...)
+const VIDEO = {
+  'Hack': 'machine-hack-squat', 'Leg press': 'machine-leg-press', 'Cadeira extensora': 'machine-leg-extension', 'Mesa flexora': 'machine-hamstring-curl',
+  'Panturrilha sentado': 'machine-seated-calf-raises', 'Elevação de pernas': 'laying-leg-raises', 'Elevação lateral': 'dumbbell-lateral-raise',
+  'Desenvolvimento na máquina': 'machine-overhand-overhead-press', 'Elevação lateral no cabo': 'cable-low-single-arm-lateral-raise',
+  'Supino reto com barra': 'barbell-bench-press', 'Face pull': 'cable-bar-face-pull', 'Tríceps francês': 'dumbbell-seated-overhead-tricep-extension',
+  'Remada curvada': 'barbell-bent-over-row', 'Puxada neutra unilateral': 'neutral-pulldown', 'Pullover no cabo': 'cable-rope-pullover',
+  'Crucifixo inverso': 'dumbbell-rear-delt-fly', 'Rosca inclinada': 'dumbbell-incline-curl', 'Rosca martelo': 'dumbbell-hammer-curl',
+  'Stiff': 'barbell-stiff-leg-deadlifts', 'Agachamento no Smith / pêndulo': 'smith-machine-squat', 'Flexora sentada': 'machine-seated-leg-curl',
+  'Búlgaro (por perna)': 'dumbbell-bulgarian-split-squat', 'Panturrilha em pé': 'machine-standing-calf-raises', 'Abdominal na polia': 'cable-rope-kneeling-crunch',
+  'Barra fixa / puxada aberta': 'pull-ups', 'Remada baixa': 'machine-seated-cable-row', 'Supino inclinado com halter': 'dumbbell-incline-bench-press',
+  'Desenvolvimento com halter': 'dumbbell-seated-overhead-press', 'Tríceps corda': 'cable-rope-pushdown', 'Rosca direta': 'barbell-curl'
+};
 const $ = s => document.querySelector(s);
 
 // db: { "2026-10-21_3": { "Remada curvada": [{w, r, ok}, ...] } }; pending: chaves ainda não enviadas
@@ -161,7 +174,7 @@ function render() {
         <input type="checkbox" id="c${i}-${k}" data-i="${i}" data-k="${k}" data-f="ok" ${ok ? 'checked' : ''} aria-label="${n}, série ${k + 1} feita"></div>`;
     }).join('');
     const hint = prev ? `Última: ${prev.filter(s => s?.w !== '').map(s => `${s.w}×${s.r || '?'}`).join(' · ')}` : 'Sem registro anterior';
-    const yt = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(`${n.replace(/\s*\(.*\)/, '')} execução correta`);
+    const yt = VIDEO[n] ? 'https://musclewiki.com/pt-br/exercise/' + VIDEO[n] : 'https://www.youtube.com/results?search_query=' + encodeURIComponent(`${n.replace(/\s*\(.*\)/, '')} execução correta`);
     return `<section class="ex"><header><h3><a href="${yt}" target="_blank" rel="noopener">${n} ▸</a>${tag ? `<span class="tag">${tag}</span>` : ''}</h3><span class="meta">${sets} × ${reps}</span></header>
       <span class="meta">${hint}</span>
       <div class="set head"><span></span><span>kg</span><span>reps</span><span>feito</span></div>${rows}</section>`;
