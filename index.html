@@ -198,7 +198,7 @@ function chart() {
   const x = d => L + (W - L - R) * (Date.parse(d) - t0) / (t1 - t0 || 1);
   const y = w => T + (H - T - B) * (1 - (w - lo) / (hi - lo));
   const ticks = Array.from({ length: 5 }, (_, i) => Math.round(lo + (hi - lo) * i / 4));
-  const lastP = pts.at(-1), best = Math.max(...ws), diff = lastP.w - pts[0].w;
+  const lastP = pts.at(-1), best = Math.max(...ws), diff = Math.round((lastP.w - pts[0].w) * 10) / 10;
   sum.textContent = `Última ${lastP.w} kg · melhor ${best} kg · ${diff >= 0 ? '+' : ''}${diff} kg desde ${br(pts[0].d)}. Toque num ponto para ver a data.`;
   el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Carga máxima de ${name} por treino, de ${pts[0].w} a ${lastP.w} kg">
     ${ticks.map(t => `<line class="grid" x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}"/><text x="${L - 6}" y="${y(t) + 4}" text-anchor="end">${t}</text>`).join('')}
